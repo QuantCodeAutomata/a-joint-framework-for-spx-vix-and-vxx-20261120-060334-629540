@@ -1,0 +1,23 @@
+{
+  "n_paths": 20000,
+  "horizon_days": 30,
+  "steps_per_day": 4,
+  "ell_empty": 0.3,
+  "ell_1": 0.0,
+  "ell_11": 1.0,
+  "vxx0": 0.34,
+  "tau_years": 0.07671232876712329,
+  "nonnegativity_condition_3_16": {
+    "lhs_ell_empty_over_ell_11": 0.3,
+    "rhs_bound": 0.03595890410958904,
+    "holds": true
+  },
+  "vix_nonneg_fraction_simulated": 1.0,
+  "variance_nonneg_fraction_simulated": 1.0,
+  "vix_mean_at_t0": 0.29999999999999993,
+  "vix_mean_at_horizon": 0.34159792567411396,
+  "vxx_mean_at_t0": 0.3399999999999999,
+  "vxx_mean_at_horizon": 0.34045262019830663,
+  "sigma_mean_at_t0": 0.2802064756229718,
+  "futures30_mean_at_t0": 0.3410958904109588
+}

@@ -76,6 +76,24 @@ EXP2_N_STRIKES_SPX = 29        # number of SPX strikes (data_requirements)
 EXP2_N_STRIKES_VIX = 13        # number of VIX strikes (data_requirements)
 EXP2_N_STRIKES_VXX = 13        # number of VXX strikes (data_requirements)
 EXP2_ERROR_BOUND_ISTAR = 2     # i* truncation index used in the Monte Carlo error-bound estimate (methodology, step 13)
+# Reported calibrated coefficients, ordered by word length then lexicographically
+# within each level (Section 4.1, equations 4.2-4.4): used here to evaluate the
+# model at the paper's reported optimum and as the feasible starting point for
+# the illustrative recalibration against the synthetic surface (see exp/exp_2.py).
+EXP2_ELL2_STAR = (
+    0.190867, -0.215044, -0.365274, 0.002658, 0.055771, -0.637830,
+    3.319946, -0.016356, -0.365003, 3.414089, 1.380427, -0.010032,
+    -0.143587, -0.037989, -0.012147, 0.000191, 0.000124, -0.406777,
+    -0.139771, 0.000905, 0.022677,
+)  # eq (4.2), complete level-two specification, 21 coefficients
+EXP2_RHO2_STAR = (0.83893325, 0.08516936, -0.92248544)  # eq (4.2)
+EXP2_ELL3_STAR = (
+    0.183160, -0.001962, -0.216225, -0.000552, 0.066644, 4.320270,
+    1.799492, 0.010978, -0.323009, 1.683842, 1.814017, 0.005986,
+    -0.002905, 0.010985, 0.011239, -0.000115, -0.000214, -0.380179,
+    -0.007736, 0.000301, 0.035222, -5.407749, -155.189355,
+)  # eq (4.4): 21 level-two coefficients followed by the (1,1,1) and (0,0,0) coefficients
+EXP2_RHO3_STAR = (0.72476236, 0.08704893, -0.97668878)  # eq (4.4)
 
 # ---------------------------------------------------------------------------
 # Experiment 3: 2 OU factors + 1 CIR factor primary process (Section 4.2)
@@ -122,6 +140,19 @@ EXP3_N_STRIKES_SPX = 29
 EXP3_N_STRIKES_VIX = 13
 EXP3_N_STRIKES_VXX = 13
 EXP3_ERROR_BOUND_ISTAR = 2
+# Reported calibrated coefficients (Section 4.2): 21 complete level-two
+# coefficients (same word order as EXP2_ELL2_STAR) followed by the four
+# enriched words (0,3,3), (1,1,1), (3,0,3), (3,3,0), in that order (page 25).
+EXP3_ELL_STAR = (
+    0.180019427, 0.461950053, -0.108385853, -0.0302125301,
+    0.156072432, 6.17876383, 0.842840799, -0.000707860290,
+    -0.863394392, -0.782715752, 0.0551015859, 0.0151765465,
+    -0.0816255771, 0.0331908723, 0.00654638618, 0.00687084954,
+    -0.0218291533, -0.209107658, -0.0967873223, -0.0217794848,
+    0.247639880,
+    0.908004241, 0.345714490, -0.394356075, 1.74820083,
+)
+EXP3_RHO_STAR = (0.31357466, 0.87752185, -0.46081810)  # page 25
 
 # ---------------------------------------------------------------------------
 # Shared calibration/optimization settings (Appendix C)

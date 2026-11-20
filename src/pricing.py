@@ -17,20 +17,29 @@ import numpy as np
 from scipy.optimize import brentq
 from scipy.stats import norm
 
-from src.signature import SparseVec, Word, integral_matrix_exp, nilpotent_powers, shuffle, word_to_vector
+from src.signature import (
+    SparseVec,
+    SpectralPropagator,
+    Word,
+    integral_matrix_exp,
+    shuffle,
+    spectral_propagator,
+    word_to_vector,
+)
 
 
 @dataclass
 class ModelOperators:
     """Pre-computed, ell-independent objects shared across calibration
-    candidates: the dual-operator matrix G, its nilpotent powers (Theorem
-    2.4), the matrix A and its inverse on the level-<=2n word basis, and the
-    word index."""
+    candidates: the dual-operator matrix G, its cached eigendecomposition
+    used to evaluate exp(t G) for any t (Theorem 2.4's semigroup property),
+    the matrix A and its inverse on the level-<=2n word basis, and the word
+    index."""
 
     words: list[Word]
     index: dict[Word, int]
     G: np.ndarray
-    G_powers: list[np.ndarray]
+    propagator: SpectralPropagator
     A_inv: np.ndarray
     delta_years: float
 
@@ -39,28 +48,28 @@ def build_operators(words: list[Word], G: np.ndarray, delta_years: float) -> Mod
     A = integral_matrix_exp(G, delta_years)
     A_inv = np.linalg.inv(A)
     index = {w: i for i, w in enumerate(words)}
-    G_powers = nilpotent_powers(G)
-    return ModelOperators(words=words, index=index, G=G, G_powers=G_powers, A_inv=A_inv, delta_years=delta_years)
+    # exp(t G) is evaluated via the cached eigendecomposition of G
+    # (`spectral_propagator`), not a truncated power series: G is only
+    # nilpotent for the driftless one-dimensional case of Corollary 3.20,
+    # not for the mean-reverting OU/CIR primary processes of Section 4
+    # (see `src/signature.py::nilpotent_powers` docstring).
+    propagator = spectral_propagator(G)
+    return ModelOperators(words=words, index=index, G=G, propagator=propagator, A_inv=A_inv, delta_years=delta_years)
 
 
-def ell_power_vectors(ops: ModelOperators, ell_vec: np.ndarray) -> list[np.ndarray]:
-    """[ell_vec, G ell_vec, G^2 ell_vec, ...], computed once per candidate
-    ell and reused across every maturity/time node of a pricing pass."""
-    return [Gk @ ell_vec for Gk in ops.G_powers]
+def ell_power_vectors(ops: ModelOperators, ell_vec: np.ndarray) -> np.ndarray:
+    """Eigenbasis coefficients of `ell_vec`, computed once per candidate ell
+    and reused across every maturity/time node of a pricing pass (see
+    `SpectralPropagator.coeffs`)."""
+    return ops.propagator.coeffs(ell_vec)
 
 
-def propagate_ell(ell_powers: list[np.ndarray], t: float) -> np.ndarray:
-    """exp(t G) @ ell_vec via the finite nilpotent power series (Theorem
-    2.4): sum_k t^k/k! G^k ell_vec, using the pre-contracted vectors
-    `ell_powers` = [G^k ell_vec]_k so that only O(dim) work per time node
-    remains (see `ell_power_vectors`)."""
-    out = np.zeros_like(ell_powers[0])
-    coeff = 1.0
-    for k, gk_ell in enumerate(ell_powers):
-        if k > 0:
-            coeff *= t / k
-        out = out + coeff * gk_ell
-    return out
+def propagate_ell(ops: ModelOperators, ell_coeffs: np.ndarray, t: float) -> np.ndarray:
+    """exp(t G) @ ell_vec via the cached spectral decomposition of G
+    (Theorem 2.4 / Theorem 3.14), using the pre-contracted eigenbasis
+    coefficients `ell_coeffs` so that only O(dim) work per time node remains
+    (see `ell_power_vectors`)."""
+    return ops.propagator.propagate(ell_coeffs, t)
 
 
 def h_of_ell(ell: SparseVec, ops: ModelOperators) -> np.ndarray:
@@ -87,15 +96,16 @@ def signed_vix_functional(sig_level_n: np.ndarray, ell_vec: np.ndarray) -> np.nd
 
 
 def futures_proxy_signed(
-    sig: np.ndarray, ell_powers: list[np.ndarray], maturity_minus_t: float
+    sig: np.ndarray, ops: ModelOperators, ell_coeffs: np.ndarray, maturity_minus_t: float
 ) -> np.ndarray:
     """F~_t(T, ell) = <ell, X_hat_t^{<=n}> propagated to maturity via the
     semigroup duality <ell, P_{T-t} X_hat_t> = <e^{(T-t) G} ell, X_hat_t>
     (Theorem 2.4 / Theorem 3.14): ell is propagated forward once through the
-    finite nilpotent power series e^{(T-t) G} ell (`propagate_ell`) and then
-    contracted against the full signature path `sig` (shape (..., len(words))).
+    cached spectral decomposition of G, e^{(T-t) G} ell (`propagate_ell`),
+    and then contracted against the full signature path `sig` (shape
+    (..., len(words))).
     """
-    propagated_ell = propagate_ell(ell_powers, maturity_minus_t)
+    propagated_ell = propagate_ell(ops, ell_coeffs, maturity_minus_t)
     return sig @ propagated_ell
 
 

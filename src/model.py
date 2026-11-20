@@ -39,7 +39,7 @@ class SimulatedModel:
 
     ops: ModelOperators
     ell_vec: np.ndarray
-    ell_powers: list[np.ndarray]  # [G^k @ ell_vec]_k, see pricing.ell_power_vectors
+    ell_coeffs: np.ndarray  # eigenbasis coefficients of ell_vec, see pricing.ell_power_vectors
     h_vec: np.ndarray
     times_years: np.ndarray
     sig: np.ndarray            # (n_steps+1, n_paths, n_words)
@@ -81,7 +81,7 @@ def simulate_model(
     `horizon_days` (the longest option maturity used)."""
     ops = assemble_operators(ell, algebra, delta_years)
     ell_vec = word_to_vector(ell, ops.words)
-    ell_powers = ell_power_vectors(ops, ell_vec)
+    ell_coeffs = ell_power_vectors(ops, ell_vec)
     h_vec = h_of_ell(ell, ops)
 
     n_factors = algebra.n_factors
@@ -100,7 +100,7 @@ def simulate_model(
     # simulate_signature_paths draws its own (seed-identical) Brownian
     # increments internally; recomputed here with the same seed so that the
     # price driver B^L of equation (3.11) uses the *same* realizations.
-    return SimulatedModel(ops, ell_vec, ell_powers, h_vec, times_years, sig, dW, perp_increments, dt_years)
+    return SimulatedModel(ops, ell_vec, ell_coeffs, h_vec, times_years, sig, dW, perp_increments, dt_years)
 
 
 def update_candidate(model: SimulatedModel, ell: SparseVec) -> SimulatedModel:
@@ -113,10 +113,10 @@ def update_candidate(model: SimulatedModel, ell: SparseVec) -> SimulatedModel:
     experiment specification and reused by every optimizer iteration.
     """
     ell_vec = word_to_vector(ell, model.ops.words)
-    ell_powers = ell_power_vectors(model.ops, ell_vec)
+    ell_coeffs = ell_power_vectors(model.ops, ell_vec)
     h_vec = h_of_ell(ell, model.ops)
     return SimulatedModel(
-        model.ops, ell_vec, ell_powers, h_vec, model.times_years, model.sig,
+        model.ops, ell_vec, ell_coeffs, h_vec, model.times_years, model.sig,
         model.dW, model.perp_increments, model.dt_years,
     )
 
@@ -191,15 +191,15 @@ def price_candidate(
     t0_years, t1_years, t2_years = grid.t0_days / 365.0, grid.t1_days / 365.0, grid.t2_days / 365.0
     t3_years = grid.t3_days / 365.0
     futures_t1 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ell_powers, t1_years - times[i])
+        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t1_years - times[i])
         for i in range(vxx_idx + 1)
     ])
     futures_t2 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ell_powers, t2_years - times[i])
+        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t2_years - times[i])
         for i in range(vxx_idx + 1)
     ])
     futures_t3 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ell_powers, t3_years - times[i])
+        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t3_years - times[i])
         for i in range(vxx_idx + 1)
     ])
     futures_t1_floored = stopped_futures(futures_t1, floor_m)
@@ -216,7 +216,7 @@ def price_candidate(
     ])
 
     vix_futures_0 = float(futures_proxy_signed(
-        model.sig[0:1], model.ell_powers, vix_maturity_years
+        model.sig[0:1], model.ops, model.ell_coeffs, vix_maturity_years
     ).mean())
 
     return {
@@ -264,15 +264,15 @@ def approximation_error_bounds(
     t3_years = grid.t3_days / 365.0
     times = model.times_years[: vxx_idx + 1]
     futures_t1 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ell_powers, t1_years - times[i])
+        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t1_years - times[i])
         for i in range(vxx_idx + 1)
     ])
     futures_t2 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ell_powers, t2_years - times[i])
+        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t2_years - times[i])
         for i in range(vxx_idx + 1)
     ])
     futures_t3 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ell_powers, t3_years - times[i])
+        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t3_years - times[i])
         for i in range(vxx_idx + 1)
     ])
     unfloored = vxx_roll_proxy(

@@ -151,15 +151,18 @@ def build_G(words: list[Word], algebra: PolynomialDiffusionAlgebra) -> np.ndarra
 
 
 def nilpotent_powers(G: np.ndarray, max_power: int | None = None) -> list[np.ndarray]:
-    """Powers I, G, G^2, ... of the dual-operator matrix G.
+    """Powers I, G, G^2, ... of a *strictly nilpotent* dual-operator matrix G.
 
-    L never increases word length (Theorem 2.4), so on any word basis
-    ordered/closed as in `close_words_under_L`, G is nilpotent: G^k = 0 once
-    k exceeds the longest word's length. This lets exp(t G) be evaluated as
-    the *finite* power series sum_k t^k/k! G^k (see `propagate_ell` below)
-    instead of a general-purpose matrix exponential, which is both exact and,
-    for the large word bases used in Section 4, far cheaper when exp(t G)
-    must be applied to many different t and vectors.
+    Theorem 2.4 states only that L never *increases* word length; on a word
+    basis with a letter whose drift is affine and self-referencing (e.g. a
+    mean-reverting Ornstein-Uhlenbeck or CIR factor, Section 4), L e_I can
+    have a nonzero component along e_I itself (the "diagonal" mean-reversion
+    term), so G need not be nilpotent in general. G is nilpotent only in
+    special cases such as the driftless one-dimensional Brownian motion of
+    Corollary 3.20 (`src/vix_model_1d.py`), which however has its own
+    closed-form expressions and does not call this function. Callers that
+    need exp(t G) for a general polynomial-diffusion primary process must use
+    `spectral_propagator` below instead of this truncated power series.
     """
     n = G.shape[0]
     powers = [np.eye(n)]
@@ -171,6 +174,58 @@ def nilpotent_powers(G: np.ndarray, max_power: int | None = None) -> list[np.nda
             break
         powers.append(current)
     return powers
+
+
+@dataclass
+class SpectralPropagator:
+    """Cached eigendecomposition G = V diag(eigvals) V^{-1}, used to evaluate
+    exp(t G) @ v for many different (t, v) at O(dim) cost per evaluation once
+    the O(dim^2) change of basis `coeffs = V^{-1} v` has been done once per
+    vector (Theorem 2.4's semigroup property <ell, P_{T-t} X_hat_t> =
+    <e^{(T-t)G} ell, X_hat_t>, Theorem 3.14). Falls back to direct
+    `scipy.linalg.expm` when G is defective (not diagonalizable) or
+    ill-conditioned, since the paper does not restrict G to be diagonalizable
+    in general (e.g. the CIR dual operator of Section 4.2)."""
+
+    G: np.ndarray
+    eigvals: np.ndarray
+    eigvecs: np.ndarray
+    eigvecs_inv: np.ndarray
+    well_conditioned: bool
+
+    def coeffs(self, vec: np.ndarray) -> np.ndarray:
+        """Change `vec` to the eigenbasis once; reused across every t."""
+        return self.eigvecs_inv @ vec.astype(complex)
+
+    def propagate(self, coeffs: np.ndarray, t: float) -> np.ndarray:
+        """exp(t G) @ vec from its pre-computed eigen-coefficients."""
+        if not self.well_conditioned:
+            return (expm(t * self.G) @ coeffs.real)
+        value = self.eigvecs @ (coeffs * np.exp(t * self.eigvals))
+        imag = np.abs(value.imag)
+        scale = np.maximum(np.abs(value.real), 1e-12)
+        assert np.all(imag <= 1e-6 * scale + 1e-8), (
+            "exp(t G) @ vec must be real since G and vec are real; a large "
+            "imaginary residual indicates a defective/ill-conditioned eigenbasis"
+        )
+        return value.real
+
+
+def spectral_propagator(G: np.ndarray, cond_threshold: float = 1e10) -> SpectralPropagator:
+    """Build the cached eigendecomposition of G used by `SpectralPropagator`.
+
+    Falls back to treating G as ill-conditioned (every `propagate` call then
+    uses `scipy.linalg.expm` directly) when the eigenvector matrix is close
+    to singular, which signals that G is defective on this word basis.
+    """
+    if G.shape[0] == 0:
+        return SpectralPropagator(G, np.zeros(0, dtype=complex), np.zeros((0, 0), dtype=complex),
+                                   np.zeros((0, 0), dtype=complex), True)
+    eigvals, eigvecs = np.linalg.eig(G)
+    cond = np.linalg.cond(eigvecs)
+    well_conditioned = np.isfinite(cond) and cond < cond_threshold
+    eigvecs_inv = np.linalg.inv(eigvecs) if well_conditioned else np.zeros_like(eigvecs)
+    return SpectralPropagator(G, eigvals, eigvecs, eigvecs_inv, well_conditioned)
 
 
 def integral_matrix_exp(M: np.ndarray, delta: float) -> np.ndarray:

@@ -16,10 +16,11 @@ import numpy as np
 
 from src.pricing import (
     ModelOperators,
+    attach_step_propagator,
     build_operators,
     discounted_call_price,
     ell_power_vectors,
-    futures_proxy_signed,
+    futures_proxy_signed_series,
     h_of_ell,
     leverage_saturated_driver,
     raw_variance_path,
@@ -87,6 +88,11 @@ def simulate_model(
     n_factors = algebra.n_factors
     n_steps = int(round(horizon_days * steps_per_day))
     dt_years = (1.0 / 365.0) / steps_per_day
+    # Precompute exp(dt_years G) once per word basis so every futures/VXX
+    # proxy evaluation on the simulation grid reuses a cheap matrix-vector
+    # recursion instead of one matrix exponential per grid node (see
+    # `src.pricing.attach_step_propagator`).
+    attach_step_propagator(ops, dt_years)
     rng = np.random.default_rng(seed)
     chol = np.linalg.cholesky(correlation)
     raw_normals = rng.normal(size=(n_steps, n_paths, n_factors))
@@ -190,18 +196,11 @@ def price_candidate(
     vxx_idx = min(vxx_idx, model.sig.shape[0] - 1)
     t0_years, t1_years, t2_years = grid.t0_days / 365.0, grid.t1_days / 365.0, grid.t2_days / 365.0
     t3_years = grid.t3_days / 365.0
-    futures_t1 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t1_years - times[i])
-        for i in range(vxx_idx + 1)
-    ])
-    futures_t2 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t2_years - times[i])
-        for i in range(vxx_idx + 1)
-    ])
-    futures_t3 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t3_years - times[i])
-        for i in range(vxx_idx + 1)
-    ])
+    sig_vxx = model.sig[: vxx_idx + 1]
+    times_vxx = times[: vxx_idx + 1]
+    futures_t1 = futures_proxy_signed_series(sig_vxx, model.ops, model.ell_vec, t1_years, times_vxx)
+    futures_t2 = futures_proxy_signed_series(sig_vxx, model.ops, model.ell_vec, t2_years, times_vxx)
+    futures_t3 = futures_proxy_signed_series(sig_vxx, model.ops, model.ell_vec, t3_years, times_vxx)
     futures_t1_floored = stopped_futures(futures_t1, floor_m)
     futures_t2_floored = stopped_futures(futures_t2, floor_m)
     futures_t3_floored = stopped_futures(futures_t3, floor_m)
@@ -215,8 +214,8 @@ def price_candidate(
         discounted_call_price(vxx_terminal, float(k), rate, vxx_maturity_years) for k in vxx_strikes
     ])
 
-    vix_futures_0 = float(futures_proxy_signed(
-        model.sig[0:1], model.ops, model.ell_coeffs, vix_maturity_years
+    vix_futures_0 = float(futures_proxy_signed_series(
+        model.sig[0:1], model.ops, model.ell_vec, vix_maturity_years, times[0:1]
     ).mean())
 
     return {
@@ -263,18 +262,10 @@ def approximation_error_bounds(
     t0_years, t1_years, t2_years = grid.t0_days / 365.0, grid.t1_days / 365.0, grid.t2_days / 365.0
     t3_years = grid.t3_days / 365.0
     times = model.times_years[: vxx_idx + 1]
-    futures_t1 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t1_years - times[i])
-        for i in range(vxx_idx + 1)
-    ])
-    futures_t2 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t2_years - times[i])
-        for i in range(vxx_idx + 1)
-    ])
-    futures_t3 = np.stack([
-        futures_proxy_signed(model.sig[i], model.ops, model.ell_coeffs, t3_years - times[i])
-        for i in range(vxx_idx + 1)
-    ])
+    sig_vxx = model.sig[: vxx_idx + 1]
+    futures_t1 = futures_proxy_signed_series(sig_vxx, model.ops, model.ell_vec, t1_years, times)
+    futures_t2 = futures_proxy_signed_series(sig_vxx, model.ops, model.ell_vec, t2_years, times)
+    futures_t3 = futures_proxy_signed_series(sig_vxx, model.ops, model.ell_vec, t3_years, times)
     unfloored = vxx_roll_proxy(
         times, futures_t1, futures_t2, futures_t3, t0_years, t1_years, t2_years, 1.0, model.dt_years
     )

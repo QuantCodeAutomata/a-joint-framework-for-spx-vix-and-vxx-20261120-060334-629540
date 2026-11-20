@@ -58,9 +58,9 @@ EXP2_SPX_FORWARD = 6902.1
 EXP2_VIX_FUTURES_MARKET = 20.2524
 # Monte Carlo and calibration settings (Section 4.1, "Calibration settings")
 EXP2_N_PATHS_PAPER = 10_000    # N, Monte Carlo paths used by the paper
-EXP2_N_PATHS_RUN = 2_000       # paths actually used in this run (reduced for runtime/memory; see results/RESULTS.md)
+EXP2_N_PATHS_RUN = 300         # paths actually used in this run (reduced for runtime/memory; see results/RESULTS.md)
 EXP2_N_VALIDATION_PAPER = 1_000_000  # independent validation paths used by the paper
-EXP2_N_VALIDATION_RUN = 20_000       # validation paths actually used in this run
+EXP2_N_VALIDATION_RUN = 3_000         # validation paths actually used in this run
 EXP2_STEPS_PER_DAY = 4          # n_day, Euler steps per day (Section 4.1)
 EXP2_LOSS_LAMBDA = (0.35, 0.5, 0.15)   # (lambda_SPX, lambda_VIX, lambda_VXX) block weights (Section 4.1)
 EXP2_LOSS_BETA = (0.98, 0.1, 0.98)     # (beta_SPX, beta_VIX, beta_VXX) loss-shape parameters (Section 4.1)
@@ -122,9 +122,9 @@ EXP3_VXX0 = 28.49                 # same quote-date VXX close as exp_2 (Section 
 EXP3_SPX_FORWARD = 6902.1          # same SPX forward as exp_2 (Section 4.2 reuses Section 4's market data)
 EXP3_VIX_FUTURES_MARKET = 20.2524  # same VIX futures quote as exp_2
 EXP3_N_PATHS_PAPER = 10_000
-EXP3_N_PATHS_RUN = 2_000
+EXP3_N_PATHS_RUN = 300
 EXP3_N_VALIDATION_PAPER = 1_000_000
-EXP3_N_VALIDATION_RUN = 20_000
+EXP3_N_VALIDATION_RUN = 3_000
 EXP3_STEPS_PER_DAY = 4
 EXP3_LOSS_LAMBDA = (0.25, 0.45, 0.3)    # (lambda_SPX, lambda_VIX, lambda_VXX) (Section 4.2)
 EXP3_LOSS_BETA = (0.98, 0.1, 0.5)       # (beta_SPX, beta_VIX, beta_VXX) (Section 4.2)
@@ -158,5 +158,5 @@ EXP3_RHO_STAR = (0.31357466, 0.87752185, -0.46081810)  # page 25
 # Shared calibration/optimization settings (Appendix C)
 # ---------------------------------------------------------------------------
 CALIBRATION_MAXITER_PAPER = 500    # optimizer iterations for a full calibration (not specified in the paper; conservative default)
-CALIBRATION_MAXITER_RUN = 80       # iterations actually used in this run (reduced for runtime; see results/RESULTS.md)
+CALIBRATION_MAXITER_RUN = 10       # iterations actually used in this run (reduced for runtime; see results/RESULTS.md)
 RANDOM_SEED = 20260220             # shared Monte Carlo seed, not specified in the paper

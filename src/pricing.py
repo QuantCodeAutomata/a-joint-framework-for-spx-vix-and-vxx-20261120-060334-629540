@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.linalg import expm
 from scipy.optimize import brentq
 from scipy.stats import norm
 
@@ -42,6 +43,16 @@ class ModelOperators:
     propagator: SpectralPropagator
     A_inv: np.ndarray
     delta_years: float
+    # Single-simulation-step propagator exp(dt_sim G) and its inverse, used by
+    # `futures_proxy_signed_series` to evaluate exp((T-t) G) @ ell at every
+    # node of a simulation grid via O(dim^2) matrix-vector recursion instead
+    # of one O(dim^3) `scipy.linalg.expm` call per node (both compute the
+    # same exp((T-t) G) ell since T - t_i is, on this grid, an exact integer
+    # multiple of dt_sim). Populated by `src.model.simulate_model` once the
+    # simulation step dt_sim is known; None until then.
+    dt_sim: float | None = None
+    step_propagator: np.ndarray | None = None
+    step_propagator_inv: np.ndarray | None = None
 
 
 def build_operators(words: list[Word], G: np.ndarray, delta_years: float) -> ModelOperators:
@@ -55,6 +66,19 @@ def build_operators(words: list[Word], G: np.ndarray, delta_years: float) -> Mod
     # (see `src/signature.py::nilpotent_powers` docstring).
     propagator = spectral_propagator(G)
     return ModelOperators(words=words, index=index, G=G, propagator=propagator, A_inv=A_inv, delta_years=delta_years)
+
+
+def attach_step_propagator(ops: ModelOperators, dt_sim: float) -> None:
+    """Compute and cache exp(dt_sim G) and its inverse once per model, so
+    that `futures_proxy_signed_series` can propagate `ell` across an entire
+    simulation grid with cheap matrix-vector recursions (see the
+    `ModelOperators.step_propagator` docstring)."""
+    if ops.dt_sim == dt_sim and ops.step_propagator is not None:
+        return
+    step = expm(dt_sim * ops.G)
+    ops.dt_sim = dt_sim
+    ops.step_propagator = step
+    ops.step_propagator_inv = np.linalg.inv(step)
 
 
 def ell_power_vectors(ops: ModelOperators, ell_vec: np.ndarray) -> np.ndarray:
@@ -107,6 +131,33 @@ def futures_proxy_signed(
     """
     propagated_ell = propagate_ell(ops, ell_coeffs, maturity_minus_t)
     return sig @ propagated_ell
+
+
+def futures_proxy_signed_series(
+    sig: np.ndarray, ops: ModelOperators, ell_vec: np.ndarray, maturity_years: float, times_years: np.ndarray
+) -> np.ndarray:
+    """F~_{t_i}(T, ell) = <ell, X_hat_{t_i}> propagated to T at every node of
+    the simulation grid `times_years` (Theorem 2.4 / Theorem 3.14 duality,
+    same quantity as `futures_proxy_signed` applied node by node). Since
+    `times_years` is an evenly spaced grid of step `ops.dt_sim` and every
+    maturity used in this paper is an exact multiple of a trading day, T -
+    t_i is an exact integer multiple of dt_sim at every node; this lets the
+    propagated ell be obtained by one initial `exp(dt_sim G)` matrix power
+    (binary exponentiation) followed by a cheap O(dim^2) matrix-vector
+    recursion per subsequent node, instead of one O(dim^3) `scipy.linalg.expm`
+    call per node (see `attach_step_propagator`).
+    """
+    assert ops.step_propagator is not None, "call attach_step_propagator(ops, dt_sim) first"
+    dt = ops.dt_sim
+    maturity_steps = int(round(maturity_years / dt))
+    v = np.linalg.matrix_power(ops.step_propagator, maturity_steps) @ ell_vec
+    n_paths = sig.shape[1]
+    out = np.empty((sig.shape[0], n_paths))
+    out[0] = sig[0] @ v
+    for i in range(1, sig.shape[0]):
+        v = ops.step_propagator_inv @ v
+        out[i] = sig[i] @ v
+    return out
 
 
 def stopped_futures(futures_path: np.ndarray, floor_m: float) -> np.ndarray:

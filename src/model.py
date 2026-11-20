@@ -253,8 +253,8 @@ def approximation_error_bounds(
         the futures stopping floor m, which is the only source of error the
         paper attributes to the tractable proxy once the futures level
         never approaches m (as reported for both Table 1 and Table 2); the
-        exact constant C_T^m(ell) of Corollary 3.28 was not retrieved in
-        closed form and is approximated this way, as recorded in
+        exact constant C_T^m(ell) of Corollary 3.28 is not derived in
+        closed form here and is approximated this way, as recorded in
         results/RESULTS.md.
     """
     vix_idx = int(round(grid.vix_maturity_days * (1.0 / model.dt_years / 365.0)))

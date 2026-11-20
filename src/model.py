@@ -214,7 +214,11 @@ def price_candidate(
         discounted_call_price(vxx_terminal, float(k), rate, vxx_maturity_years) for k in vxx_strikes
     ])
 
-    vix_futures_0 = float(futures_proxy_signed_series(
+    # Scaled by 100 for the same points convention as `vix_terminal_pct` and
+    # the quoted market VIX futures level (e.g. 20.2524), since the raw VIX
+    # functional lives on the decimal scale used throughout Section 3
+    # (VIX ~ 0.30 corresponds to a quoted index level of 30).
+    vix_futures_0 = 100.0 * float(futures_proxy_signed_series(
         model.sig[0:1], model.ops, model.ell_vec, vix_maturity_years, times[0:1]
     ).mean())
 

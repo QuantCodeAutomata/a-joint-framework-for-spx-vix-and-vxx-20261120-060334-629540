@@ -1,0 +1,69 @@
+{
+  "anchor": {
+    "source": "quantx_dataloader",
+    "spots": {
+      "SPY": 687.35,
+      "VXX": 28.49
+    }
+  },
+  "specifications": {
+    "level2": {
+      "n_coefficients": 21,
+      "word_basis_closure_size": 341,
+      "vix_futures_proxy_reported_point": 20.252416821871723,
+      "vix_futures_market": 20.2524,
+      "rho_T_Rinv_rho_reported_point": 0.9944063523902006,
+      "rho_T_Rinv_rho_expected": 0.9944,
+      "min_raw_variance_reported_point": -0.059966160918998486,
+      "futures_floor_hit_reported_point": false,
+      "approximation_error_bounds": {
+        "vix_bound": 0.0,
+        "vxx_bound": 0.0,
+        "futures_floor_hit_validation": false
+      },
+      "recalibration": {
+        "loss_before": 1.0,
+        "loss_after": 0.12235203524252132,
+        "n_iterations": 10,
+        "converged": false,
+        "rho_T_Rinv_rho_after": 0.7153565344669872
+      }
+    },
+    "level3": {
+      "n_coefficients": 23,
+      "word_basis_closure_size": 575,
+      "vix_futures_proxy_reported_point": 20.284865361649082,
+      "vix_futures_market": 20.2524,
+      "rho_T_Rinv_rho_reported_point": 0.9932895183722777,
+      "rho_T_Rinv_rho_expected": 0.9933,
+      "min_raw_variance_reported_point": -0.04136709754214329,
+      "futures_floor_hit_reported_point": false,
+      "approximation_error_bounds": {
+        "vix_bound": 0.0,
+        "vxx_bound": 0.0,
+        "futures_floor_hit_validation": false
+      },
+      "recalibration": {
+        "loss_before": 1.0582386541033895,
+        "loss_after": 0.08473391362253636,
+        "n_iterations": 10,
+        "converged": false,
+        "rho_T_Rinv_rho_after": 0.8941623443731188
+      }
+    }
+  },
+  "config": {
+    "n_paths": 300,
+    "n_validation": 3000,
+    "maxiter": 10,
+    "full_run": false,
+    "spx_spread_range": [
+      0.04,
+      0.15
+    ],
+    "vxx_spread_range": [
+      0.13,
+      1.18
+    ]
+  }
+}

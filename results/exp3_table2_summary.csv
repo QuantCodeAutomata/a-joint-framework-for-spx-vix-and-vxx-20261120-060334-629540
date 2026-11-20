@@ -1,0 +1,2 @@
+n_coefficients,vix_futures_proxy,vix_futures_market,rho_T_Rinv_rho,rho_T_Rinv_rho_paper,feller_ratio,vix_error_bound,vxx_error_bound,loss_before_recalibration,loss_after_recalibration
+25,20.28452387816416,20.2524,0.9992037737758965,0.9992,2.0,0.0,0.0,1.0,0.14175504510100753

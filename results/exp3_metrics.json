@@ -1,0 +1,44 @@
+{
+  "anchor": {
+    "source": "quantx_dataloader",
+    "spots": {
+      "SPY": 687.35,
+      "VXX": 28.49
+    }
+  },
+  "feller_ratio": 2.0,
+  "n_coefficients": 25,
+  "word_basis_closure_size": 768,
+  "vix_futures_proxy_reported_point": 20.28452387816416,
+  "vix_futures_market": 20.2524,
+  "rho_T_Rinv_rho_reported_point": 0.9992037737758965,
+  "rho_T_Rinv_rho_expected": 0.9992,
+  "min_raw_variance_reported_point": -0.02560973554897326,
+  "futures_floor_hit_reported_point": false,
+  "approximation_error_bounds": {
+    "vix_bound": 0.0,
+    "vxx_bound": 0.0,
+    "futures_floor_hit_validation": false
+  },
+  "recalibration": {
+    "loss_before": 1.0,
+    "loss_after": 0.14175504510100753,
+    "n_iterations": 10,
+    "converged": false,
+    "rho_T_Rinv_rho_after": 0.8875173838028583
+  },
+  "config": {
+    "n_paths": 300,
+    "n_validation": 3000,
+    "maxiter": 10,
+    "full_run": false,
+    "spx_spread_range": [
+      0.04,
+      0.15
+    ],
+    "vxx_spread_range": [
+      0.13,
+      1.18
+    ]
+  }
+}
